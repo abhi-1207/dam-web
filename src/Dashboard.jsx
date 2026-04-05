@@ -25,7 +25,7 @@ const Dashboard = () => {
       if (!res.data) return;
 
       setLatest(res.data);
-      setMode(res.data.mode); // 🔥 sync with backend
+      setMode(res.data.mode); // sync with backend
 
       const newPoint = {
         time: new Date().toLocaleTimeString(),
@@ -49,7 +49,7 @@ const Dashboard = () => {
   const changeMode = async (newMode) => {
     try {
       await axios.post(`${API}/mode`, { mode: newMode });
-      fetchData(); // 🔥 refresh after change
+      setMode(newMode); // instant UI update
     } catch (err) {
       console.error(err);
     }
@@ -64,9 +64,7 @@ const Dashboard = () => {
       }
 
       await axios.post(`${API}/gate`, { status });
-
-      // 🔥 refresh immediately
-      fetchData();
+      fetchData(); // refresh
 
     } catch (err) {
       console.error(err);
@@ -83,20 +81,20 @@ const Dashboard = () => {
   return (
     <div className="dashboard">
 
-      {/* NAVBAR */}
+      {/* 🔥 NAVBAR */}
       <div className="navbar">
-        <h2>🌊 Smart Dam</h2>
+        <h2 className="logo">🌊 Smart Dam</h2>
 
-        <div>
+        <div className="mode-toggle">
           <button
-            className={mode === "AUTO" ? "active" : ""}
+            className={mode === "AUTO" ? "mode-btn active" : "mode-btn"}
             onClick={() => changeMode("AUTO")}
           >
             AUTO
           </button>
 
           <button
-            className={mode === "MANUAL" ? "active" : ""}
+            className={mode === "MANUAL" ? "mode-btn active" : "mode-btn"}
             onClick={() => changeMode("MANUAL")}
           >
             MANUAL
@@ -106,45 +104,45 @@ const Dashboard = () => {
 
       {latest && (
         <>
-          {/* DATA */}
+          {/* 🔥 DATA CARDS */}
           <div className="grid">
 
             <div className="card">
-              <div>Water Level</div>
+              <div className="label">Water Level</div>
               <h2 className={getLevelColor(latest.waterLevel)}>
                 {latest.waterLevel}%
               </h2>
             </div>
 
             <div className="card">
-              <div>Vibration</div>
+              <div className="label">Vibration</div>
               <h2 className={latest.vibration === "SAFE" ? "green" : "red"}>
                 {latest.vibration}
               </h2>
             </div>
 
             <div className="card">
-              <div>Gate</div>
+              <div className="label">Gate</div>
               <h2>{latest.gateStatus}</h2>
             </div>
 
             <div className="card">
-              <div>Temperature</div>
+              <div className="label">Temperature</div>
               <h2>{latest.temperature}°C</h2>
             </div>
 
           </div>
 
-          {/* AUTO MODE */}
+          {/* 🔥 AUTO MODE */}
           {mode === "AUTO" && (
             <div className="chart-container">
               <h3>📈 Water Level Trend</h3>
 
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={data}>
-                  <CartesianGrid stroke="#333" />
-                  <XAxis dataKey="time" stroke="#ccc" />
-                  <YAxis domain={[0, 100]} stroke="#ccc" />
+                  <CartesianGrid stroke="#1f2937" />
+                  <XAxis dataKey="time" stroke="#94a3b8" />
+                  <YAxis domain={[0, 100]} stroke="#94a3b8" />
                   <Tooltip />
                   <Line
                     type="monotone"
@@ -158,18 +156,20 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* MANUAL MODE */}
+          {/* 🔥 MANUAL MODE */}
           {mode === "MANUAL" && (
             <div className="manual-control">
               <h3>🎮 Gate Control</h3>
 
-              <button onClick={() => controlGate("OPEN")}>
-                OPEN GATE
-              </button>
+              <div className="btn-group">
+                <button onClick={() => controlGate("OPEN")}>
+                  OPEN GATE
+                </button>
 
-              <button onClick={() => controlGate("CLOSED")}>
-                CLOSE GATE
-              </button>
+                <button onClick={() => controlGate("CLOSED")}>
+                  CLOSE GATE
+                </button>
+              </div>
             </div>
           )}
         </>
