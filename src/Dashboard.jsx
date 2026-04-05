@@ -10,52 +10,68 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const API_URL = "https://dam-project-zbht.onrender.com/latest";
+const API = "https://dam-project-zbht.onrender.com";
 
 const Dashboard = () => {
   const [data, setData] = useState([]);
   const [latest, setLatest] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState("AUTO");
+
+  // 🔄 FETCH DATA
+  const fetchData = async () => {
+    try {
+      const res = await axios.get(`${API}/dashboard`);
+
+      if (!res.data) return;
+
+      setLatest(res.data);
+      setMode(res.data.mode); // 🔥 sync with backend
+
+      const newPoint = {
+        time: new Date().toLocaleTimeString(),
+        waterLevel: res.data.waterLevel,
+      };
+
+      setData((prev) => [...prev.slice(-20), newPoint]);
+
+    } catch (err) {
+      console.error("API Error:", err.message);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchData = async () => {
-      try {
-        const res = await axios.get(API_URL);
-
-        if (!isMounted || !res.data) return;
-
-        const water = res.data.waterLevel;
-
-        const newPoint = {
-          time: new Date().toLocaleTimeString(),
-          waterLevel: water,
-        };
-
-        setLatest(res.data);
-        setLoading(false);
-
-        setData((prev) => {
-          const updated = [...prev, newPoint];
-          return updated.slice(-20);
-        });
-
-      } catch (err) {
-        console.error("API Error:", err.message);
-      }
-    };
-
     fetchData();
-
-    // ⚡ Faster polling (2 sec)
     const interval = setInterval(fetchData, 2000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, []);
+
+  // 🔥 MODE SWITCH
+  const changeMode = async (newMode) => {
+    try {
+      await axios.post(`${API}/mode`, { mode: newMode });
+      fetchData(); // 🔥 refresh after change
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // 🔥 GATE CONTROL
+  const controlGate = async (status) => {
+    try {
+      if (mode !== "MANUAL") {
+        alert("Switch to MANUAL mode first");
+        return;
+      }
+
+      await axios.post(`${API}/gate`, { status });
+
+      // 🔥 refresh immediately
+      fetchData();
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const getLevelColor = (level) => {
     if (level < 40) return "blue";
@@ -67,74 +83,97 @@ const Dashboard = () => {
   return (
     <div className="dashboard">
 
-      <div className="header">🌊 Smart Dam Control Panel</div>
+      {/* NAVBAR */}
+      <div className="navbar">
+        <h2>🌊 Smart Dam</h2>
 
-      {loading && <div style={{ textAlign: "center" }}>Loading data...</div>}
+        <div>
+          <button
+            className={mode === "AUTO" ? "active" : ""}
+            onClick={() => changeMode("AUTO")}
+          >
+            AUTO
+          </button>
+
+          <button
+            className={mode === "MANUAL" ? "active" : ""}
+            onClick={() => changeMode("MANUAL")}
+          >
+            MANUAL
+          </button>
+        </div>
+      </div>
 
       {latest && (
-        <div className="grid">
+        <>
+          {/* DATA */}
+          <div className="grid">
 
-          {/* Water Level */}
-          <div className="card">
-            <div className="label">Water Level</div>
-            <div className={`value ${getLevelColor(latest.waterLevel)}`}>
-              {latest.waterLevel}%
+            <div className="card">
+              <div>Water Level</div>
+              <h2 className={getLevelColor(latest.waterLevel)}>
+                {latest.waterLevel}%
+              </h2>
             </div>
 
-            <div className="progress">
-              <div
-                className="progress-fill"
-                style={{ width: `${latest.waterLevel}%` }}
-              ></div>
+            <div className="card">
+              <div>Vibration</div>
+              <h2 className={latest.vibration === "SAFE" ? "green" : "red"}>
+                {latest.vibration}
+              </h2>
             </div>
-          </div>
 
-          {/* Vibration */}
-          <div className="card">
-            <div className="label">Vibration</div>
-            <div className={`value ${latest.vibration === "SAFE" ? "green" : "red"}`}>
-              {latest.vibration}
+            <div className="card">
+              <div>Gate</div>
+              <h2>{latest.gateStatus}</h2>
             </div>
-          </div>
 
-          {/* Gate Status */}
-          <div className="card">
-            <div className="label">Gate Status</div>
-            <div className={`value ${latest.gateStatus === "CLOSED" ? "green" : "red"}`}>
-              {latest.gateStatus}
+            <div className="card">
+              <div>Temperature</div>
+              <h2>{latest.temperature}°C</h2>
             </div>
+
           </div>
 
-          {/* Time */}
-          <div className="card">
-            <div className="label">Last Update</div>
-            <div>{new Date(latest.timestamp).toLocaleTimeString()}</div>
-          </div>
+          {/* AUTO MODE */}
+          {mode === "AUTO" && (
+            <div className="chart-container">
+              <h3>📈 Water Level Trend</h3>
 
-        </div>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={data}>
+                  <CartesianGrid stroke="#333" />
+                  <XAxis dataKey="time" stroke="#ccc" />
+                  <YAxis domain={[0, 100]} stroke="#ccc" />
+                  <Tooltip />
+                  <Line
+                    type="monotone"
+                    dataKey="waterLevel"
+                    stroke="#38bdf8"
+                    strokeWidth={3}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* MANUAL MODE */}
+          {mode === "MANUAL" && (
+            <div className="manual-control">
+              <h3>🎮 Gate Control</h3>
+
+              <button onClick={() => controlGate("OPEN")}>
+                OPEN GATE
+              </button>
+
+              <button onClick={() => controlGate("CLOSED")}>
+                CLOSE GATE
+              </button>
+            </div>
+          )}
+        </>
       )}
-
-      {/* Chart */}
-      <div className="chart-container">
-        <h3>📈 Water Level Trend</h3>
-
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={data}>
-            <CartesianGrid stroke="#333" />
-            <XAxis dataKey="time" stroke="#ccc" />
-            <YAxis stroke="#ccc" domain={[0, 100]} />
-            <Tooltip />
-            <Line
-              type="monotone"
-              dataKey="waterLevel"
-              stroke="#38bdf8"
-              strokeWidth={3}
-              dot={false}
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
 
     </div>
   );
